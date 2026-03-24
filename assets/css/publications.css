@@ -1,0 +1,25 @@
+nav { border-bottom: 1px solid var(--border); box-shadow: 0 1px 8px rgba(0,0,0,0.04); }
+
+.page-header .jump-links { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1.2rem; }
+.page-header .jump-links a {
+  font-family: var(--font-heading); font-size: 0.75rem; font-weight: 500;
+  padding: 0.35rem 0.8rem; border-radius: 100px;
+  border: 1px solid var(--border); color: var(--muted); text-decoration: none; transition: all 0.2s;
+}
+.page-header .jump-links a:hover { border-color: var(--accent); color: var(--accent); }
+
+.pub-section { margin-bottom: 3rem; }
+.pub-section h2 {
+  font-family: var(--font-heading); font-size: 1.3rem; font-weight: 600;
+  margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--accent-soft);
+}
+.pub-entry { padding: 0.8rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; line-height: 1.65; font-weight: 300; color: var(--muted); }
+.pub-entry:last-child { border-bottom: none; }
+.pub-entry strong { color: var(--ink); font-weight: 600; }
+.pub-entry a { color: var(--accent); text-decoration: none; }
+.pub-entry a:hover { color: var(--accent-dark); text-decoration: underline; }
+
+.talk-entry { padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; line-height: 1.6; font-weight: 300; color: var(--muted); }
+.talk-entry:last-child { border-bottom: none; }
+.talk-entry strong { color: var(--ink); font-weight: 500; }
+.talk-year { font-family: var(--font-mono); font-size: 0.72rem; color: var(--light); margin-right: 0.5rem; }

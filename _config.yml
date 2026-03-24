@@ -1,0 +1,16 @@
+title: Maria-Theresia Walach
+description: Space Physicist at Lancaster University — UKRI Ernest Rutherford Fellow
+url: "https://mtwalach.github.io"
+baseurl: ""
+author: Maria-Theresia Walach
+
+google_analytics: G-MWC5T0TRXY
+
+# Build settings
+markdown: kramdown
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - cv_2page.tex
+  - cv_2page.txt

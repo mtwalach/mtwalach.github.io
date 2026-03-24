@@ -1,0 +1,26 @@
+nav { border-bottom: 1px solid var(--border); box-shadow: 0 1px 8px rgba(0,0,0,0.04); }
+
+.cv-section { margin-bottom: 2.5rem; }
+.cv-section h2 {
+  font-family: var(--font-heading); font-size: 1.3rem; font-weight: 600;
+  margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--accent-soft);
+}
+.cv-entry { padding: 1rem 0; border-bottom: 1px solid var(--border); }
+.cv-entry:last-child { border-bottom: none; }
+.cv-date { font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent); margin-bottom: 0.2rem; }
+.cv-title { font-family: var(--font-heading); font-size: 1rem; font-weight: 600; margin-bottom: 0.2rem; }
+.cv-place { font-size: 0.9rem; color: var(--muted); font-weight: 300; }
+.cv-detail { font-size: 0.88rem; color: var(--muted); font-weight: 300; line-height: 1.7; margin-top: 0.4rem; }
+
+.prize-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.8rem; margin-top: 0.5rem; }
+.prize { padding: 1rem 1.2rem; border: 1px solid var(--border); border-radius: 8px; }
+.prize-year { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent); margin-bottom: 0.2rem; }
+.prize-name { font-family: var(--font-heading); font-size: 0.9rem; font-weight: 600; }
+.prize-detail { font-size: 0.82rem; color: var(--muted); font-weight: 300; }
+
+.skills-list { font-size: 0.9rem; color: var(--muted); font-weight: 300; line-height: 1.8; }
+.skills-list strong { color: var(--ink); font-weight: 500; }
+
+@media (max-width: 700px) {
+  .prize-grid { grid-template-columns: 1fr; }
+}
