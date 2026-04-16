@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painting the Invisible — Live Magnetometer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#060b14;--bg2:#0d1829;--bg3:#111f35;
+  --border:rgba(100,180,255,.12);--border2:rgba(100,180,255,.22);
+  --teal:#4dd9ac;--blue:#5ab4f5;--pink:#e06ca0;--amber:#f0b84a;
+  --text:#ddeeff;--text-dim:rgba(180,210,240,.55);--text-mid:rgba(180,210,240,.8);
+  --needle:#f0f8ff;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden;position:relative;}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 80% 40% at 20% 10%,rgba(77,217,172,.18),transparent 60%),
+    radial-gradient(ellipse 60% 30% at 80% 20%,rgba(90,180,245,.12),transparent 55%),
+    radial-gradient(ellipse 50% 25% at 50% 5%, rgba(224,108,160,.1), transparent 50%);
+  animation:auroraShift 18s ease-in-out infinite alternate;
+}
+@keyframes auroraShift{0%{opacity:.7;transform:translateY(0) scaleX(1);}50%{opacity:1;transform:translateY(12px) scaleX(1.04);}100%{opacity:.8;transform:translateY(-8px) scaleX(.97);}}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(1px 1px at 15% 20%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 35% 55%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 65% 12%,rgba(255,255,255,.6) 0%,transparent 100%),
+    radial-gradient(1px 1px at 80% 70%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 92% 30%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 5%  80%,rgba(255,255,255,.4) 0%,transparent 100%),
+    radial-gradient(1px 1px at 44% 35%,rgba(255,255,255,.5) 0%,transparent 100%),
+    radial-gradient(1px 1px at 73% 48%,rgba(255,255,255,.35) 0%,transparent 100%),
+    radial-gradient(1px 1px at 28% 92%,rgba(255,255,255,.4) 0%,transparent 100%);
+}
+.page{position:relative;z-index:1;max-width:640px;margin:0 auto;padding:3rem 1.5rem 4rem;}
+header{margin-bottom:2rem;}
+.eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem;}
+h1{font-family:'Fraunces',serif;font-weight:300;font-size:clamp(1.7rem,5vw,2.4rem);line-height:1.18;margin-bottom:.5rem;}
+h1 em{font-style:italic;color:var(--teal);}
+.subtitle{font-size:12px;color:var(--text-dim);letter-spacing:.04em;line-height:1.6;}
+.mode-tabs{display:flex;gap:6px;margin:1.5rem 0 1rem;background:var(--bg2);border:.5px solid var(--border);border-radius:8px;padding:4px;}
+.mode-tab{flex:1;padding:8px 6px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:none;color:var(--text-dim);cursor:pointer;border-radius:5px;transition:background .2s,color .2s;}
+.mode-tab.active{background:var(--bg3);color:var(--teal);border:.5px solid var(--border2);}
+.iphone-note{display:none;background:rgba(240,184,74,.08);border:.5px solid rgba(240,184,74,.35);border-radius:8px;padding:.6rem 1rem;font-size:11px;color:var(--amber);letter-spacing:.04em;line-height:1.6;margin:.5rem 0 1rem;}
+.iphone-note.visible{display:block;}
+.gauge-section{margin:1rem 0 .5rem;display:flex;flex-direction:column;align-items:center;}
+.total-display{margin-top:.5rem;text-align:center;}
+.total-number{font-family:'Fraunces',serif;font-weight:600;font-size:3.5rem;color:var(--teal);font-variant-numeric:tabular-nums;line-height:1;transition:color .4s;}
+.total-unit{font-size:11px;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-top:4px;}
+.axes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:.75rem 0;}
+.axis-card{background:var(--bg2);border:.5px solid var(--border);border-radius:10px;padding:.75rem;text-align:center;}
+.axis-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;}
+.axis-val{font-size:1.05rem;font-weight:400;color:var(--text);font-variant-numeric:tabular-nums;}
+.axis-bar-track{height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:8px;overflow:hidden;}
+.axis-bar-fill{height:100%;border-radius:2px;transition:width .2s ease;width:50%;}
+.timeline-wrap{margin:1rem 0 .5rem;background:var(--bg2);border:.5px solid var(--border);border-radius:12px;padding:1rem 1rem .85rem;}
+.timeline-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:6px;}
+.tl-left{display:flex;flex-direction:column;gap:6px;}
+.timeline-title{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);}
+.timeline-clock{font-size:11px;color:var(--blue);font-variant-numeric:tabular-nums;}
+.ds-toggle{display:flex;gap:3px;background:var(--bg3);border:.5px solid var(--border);border-radius:6px;padding:3px;}
+.ds-btn{padding:3px 9px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:none;color:var(--text-dim);cursor:pointer;border-radius:4px;transition:background .15s,color .15s;}
+.ds-btn.active{background:var(--bg2);color:var(--teal);border:.5px solid var(--border2);}
+.chart-outer{position:relative;width:100%;height:150px;}
+canvas#tc{display:block;width:100%;height:100%;}
+.chart-outer3{position:relative;width:100%;height:200px;}
+canvas#tc3{display:block;width:100%;height:100%;}
+.phase-label{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:20px;margin-top:.5rem;transition:background .4s,color .4s,border-color .4s;border:.5px solid var(--border2);color:var(--text-dim);}
+.phase-label.quiet   {border-color:rgba(77,217,172,.5); color:var(--teal); background:rgba(77,217,172,.08);}
+.phase-label.ssc     {border-color:rgba(240,184,74,.6); color:var(--amber);background:rgba(240,184,74,.1);}
+.phase-label.main    {border-color:rgba(224,108,160,.6);color:var(--pink); background:rgba(224,108,160,.1);}
+.phase-label.recovery{border-color:rgba(90,180,245,.5); color:var(--blue); background:rgba(90,180,245,.08);}
+.reading-badge{display:flex;align-items:baseline;gap:6px;justify-content:center;margin-top:.4rem;}
+.rb-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);}
+.rb-value{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text);transition:color .4s;}
+.comp-legend{display:flex;gap:14px;justify-content:center;margin-top:.5rem;flex-wrap:wrap;}
+.comp-legend span{font-size:10px;color:var(--text-dim);display:flex;align-items:center;gap:5px;}
+.comp-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.storm-alert{display:none;background:rgba(224,108,160,.1);border:.5px solid rgba(224,108,160,.4);border-radius:8px;padding:.6rem 1rem;font-size:12px;color:var(--pink);text-align:center;letter-spacing:.05em;margin:.5rem 0;animation:stormPulse 1s ease-in-out infinite alternate;}
+.storm-alert.visible{display:block;}
+@keyframes stormPulse{from{opacity:.7}to{opacity:1}}
+.status-line{text-align:center;font-size:11px;color:var(--text-dim);letter-spacing:.06em;min-height:18px;margin:.4rem 0 .8rem;}
+.status-line.live{color:var(--teal);}.status-line.error{color:var(--pink);}.status-line.sim{color:var(--blue);}
+.btn-row{display:flex;gap:8px;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;}
+.btn{padding:10px 24px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-radius:4px;background:transparent;border:.5px solid var(--border2);color:var(--text);transition:background .2s,border-color .2s,color .2s;}
+.btn:hover{background:var(--bg3);border-color:var(--teal);color:var(--teal);}
+.btn.running{border-color:var(--pink);color:var(--pink);}
+.btn.accent{border-color:var(--blue);color:var(--blue);}
+.btn.accent:hover{background:rgba(90,180,245,.08);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.divider{border:none;border-top:.5px solid var(--border);margin:1.5rem 0;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem;}
+@media(max-width:420px){.info-grid{grid-template-columns:1fr;}}
+.info-card{background:var(--bg2);border:.5px solid var(--border);border-radius:10px;padding:.9rem 1rem;}
+.info-card-label{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:6px;}
+.info-card-text{font-size:12px;color:var(--text-mid);line-height:1.6;font-family:'Fraunces',serif;font-weight:300;}
+.info-card-text strong{color:var(--text);font-weight:600;}
+.citation-card{background:var(--bg2);border:.5px solid var(--border);border-radius:10px;padding:.9rem 1rem;margin-bottom:1.5rem;}
+.citation-label{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:.5rem;}
+.citation-text{font-size:11px;color:var(--text-mid);line-height:1.7;font-family:'Fraunces',serif;font-weight:300;}
+.citation-text a{color:var(--blue);text-decoration:none;}
+.citation-text a:hover{text-decoration:underline;}
+.field-lines{display:block;margin:0 auto 1.5rem;opacity:.35;}
+footer{text-align:center;font-size:10px;color:var(--text-dim);letter-spacing:.1em;margin-top:2rem;line-height:1.8;}
+footer a{color:var(--teal);text-decoration:none;}
+@keyframes pulseGlow{0%,100%{opacity:.5}50%{opacity:1}}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--teal);margin-right:6px;vertical-align:middle;animation:pulseGlow 1.4s ease-in-out infinite;}
+.sim-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--blue);margin-right:6px;vertical-align:middle;animation:pulseGlow .6s ease-in-out infinite;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <p class="eyebrow">Pint of Science · Lancaster · Live Demo</p>
+    <h1>Painting the <em>Invisible</em></h1>
+    <p class="subtitle">Your device contains a magnetometer, the same type used in ground-based space weather networks. Read it live, or replay the real Gannon storm of May 2024 from Eskdalemuir Observatory.</p>
+  </header>
+  <svg class="field-lines" width="300" height="60" viewBox="0 0 300 60" fill="none" aria-hidden="true">
+    <path d="M0,30 Q75,5 150,30 Q225,55 300,30" stroke="#4dd9ac" stroke-width="1" fill="none"/>
+    <path d="M0,30 Q75,12 150,30 Q225,48 300,30" stroke="#5ab4f5" stroke-width=".7" fill="none"/>
+    <path d="M0,30 Q75,18 150,30 Q225,42 300,30" stroke="#4dd9ac" stroke-width=".5" fill="none"/>
+    <path d="M0,30 Q75,22 150,30 Q225,38 300,30" stroke="#5ab4f5" stroke-width=".4" fill="none"/>
+    <circle cx="150" cy="30" r="4" fill="#4dd9ac" opacity=".6"/>
+    <circle cx="150" cy="30" r="8" stroke="#4dd9ac" stroke-width=".5" fill="none" opacity=".4"/>
+    <circle cx="150" cy="30" r="13" stroke="#4dd9ac" stroke-width=".3" fill="none" opacity=".25"/>
+  </svg>
+  <div class="mode-tabs" role="tablist">
+    <button class="mode-tab active" id="tab-live" onclick="setMode('live')" role="tab">Live sensor</button>
+    <button class="mode-tab" id="tab-storm" onclick="setMode('storm')" role="tab">Gannon storm · May 2024</button>
+  </div>
+  <div class="iphone-note" id="iphone-note">
+    Safari on iPhone blocks raw magnetometer access. This is an Apple restriction with no web workaround. The storm replay works on any browser. For live readings on iPhone, the free <strong>Phyphox</strong> app accesses the hardware directly.
+  </div>
+  <div class="gauge-section">
+    <svg width="260" height="150" viewBox="0 0 260 150" aria-label="Semicircular gauge showing magnetic field">
+      <defs><clipPath id="sc"><rect x="0" y="0" width="260" height="132"/></clipPath></defs>
+      <g clip-path="url(#sc)">
+        <path d="M20,132 A111,111 0 0,1 240,132" fill="none" stroke="rgba(77,217,172,.07)" stroke-width="16" stroke-linecap="round"/>
+        <path d="M20,132 A111,111 0 0,1 80,35" fill="none" stroke="rgba(77,217,172,.4)" stroke-width="16" stroke-linecap="round"/>
+        <path d="M80,35 A111,111 0 0,1 180,35" fill="none" stroke="rgba(90,180,245,.4)" stroke-width="16" stroke-linecap="round"/>
+        <path d="M180,35 A111,111 0 0,1 240,132" fill="none" stroke="rgba(224,108,160,.5)" stroke-width="16" stroke-linecap="round"/>
+      </g>
+      <g stroke="rgba(180,210,240,.3)" stroke-width=".8">
+        <line x1="20" y1="132" x2="26" y2="132"/>
+        <line x1="130" y1="21" x2="130" y2="27"/>
+        <line x1="240" y1="132" x2="234" y2="132"/>
+      </g>
+      <text x="8" y="148" font-size="9" fill="rgba(77,217,172,.7)" font-family="DM Mono,monospace" text-anchor="middle">calm</text>
+      <text x="130" y="16" font-size="9" fill="rgba(90,180,245,.7)" font-family="DM Mono,monospace" text-anchor="middle">active</text>
+      <text x="252" y="148" font-size="9" fill="rgba(224,108,160,.7)" font-family="DM Mono,monospace" text-anchor="end">storm</text>
+      <line id="needle" x1="130" y1="132" x2="130" y2="34" stroke="var(--needle)" stroke-width="2" stroke-linecap="round" transform="rotate(-90,130,132)" style="transition:transform .35s cubic-bezier(.34,1.56,.64,1);"/>
+      <circle cx="130" cy="132" r="5" fill="var(--needle)"/>
+      <circle cx="130" cy="132" r="2.5" fill="var(--bg)"/>
+    </svg>
+    <div class="total-display">
+      <div class="total-number" id="total-val">49.0</div>
+      <div class="total-unit" id="total-unit">µT · total field strength</div>
+    </div>
+  </div>
+  <div class="timeline-wrap" id="timeline-wrap" style="display:none;">
+    <div class="timeline-header">
+      <div class="tl-left">
+        <span class="timeline-title" id="tl-title">ESK Bx/By/Bz · Gannon storm · 10–11 May 2024</span>
+        <div class="ds-toggle">
+          <button class="ds-btn active" id="ds-3c" onclick="setDataset('3c')">Bx/By/Bz</button>
+          <button class="ds-btn" id="ds-bx" onclick="setDataset('bx')">Bx only</button>
+        </div>
+      </div>
+      <span class="timeline-clock" id="tlclock">10 May 00:00 UT</span>
+    </div>
+    <div class="chart-outer3" id="chart3-wrap">
+      <canvas id="tc3" role="img" aria-label="Three-component Bx By Bz chart for Eskdalemuir during Gannon storm"></canvas>
+    </div>
+    <div class="chart-outer" id="chart1-wrap" style="display:none;">
+      <canvas id="tc" role="img" aria-label="Bx perturbation at Eskdalemuir during Gannon storm"></canvas>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.6rem;flex-wrap:wrap;gap:6px;">
+      <span class="phase-label" id="phase-label">ready</span>
+      <div class="reading-badge" id="rb-wrap" style="display:none;">
+        <span class="rb-label">ESK Bx</span>
+        <span class="rb-value" id="rb-value">— nT</span>
+      </div>
+    </div>
+    <div class="comp-legend" id="comp-legend">
+      <span><span class="dot" style="background:#4dd9ac"></span>Bx (northward)</span>
+      <span><span class="dot" style="background:#5ab4f5"></span>By (eastward)</span>
+      <span><span class="dot" style="background:#e06ca0"></span>Bz (downward)</span>
+    </div>
+  </div>
+  <div class="storm-alert" id="storm-alert">⚡ geomagnetic storm in progress — G5 extreme event</div>
+  <p class="status-line" id="status">select a mode above to begin</p>
+  <div class="btn-row">
+    <button class="btn" id="main-btn" onclick="mainAction()">Start sensor</button>
+    <button class="btn accent" id="storm-btn" onclick="runStorm()" style="display:none;">Play storm</button>
+  </div>
+  <div class="axes">
+    <div class="axis-card">
+      <div class="axis-label">X axis</div>
+      <div class="axis-val" id="x-val">+30.2</div>
+      <div class="axis-bar-track"><div class="axis-bar-fill" id="bar-x" style="background:var(--teal);width:58%"></div></div>
+    </div>
+    <div class="axis-card">
+      <div class="axis-label">Y axis</div>
+      <div class="axis-val" id="y-val">&#x2212;2.1</div>
+      <div class="axis-bar-track"><div class="axis-bar-fill" id="bar-y" style="background:var(--blue);width:49%"></div></div>
+    </div>
+    <div class="axis-card">
+      <div class="axis-label">Z axis</div>
+      <div class="axis-val" id="z-val">+38.4</div>
+      <div class="axis-bar-track"><div class="axis-bar-fill" id="bar-z" style="background:var(--pink);width:55%"></div></div>
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-card-label">Lancaster's background field</div>
+      <p class="info-card-text">Lancaster's quiet-time field is around <strong>49 µT</strong>. During the Gannon storm peak, ESK Bx dropped to <strong>−1,268 nT</strong> below baseline (that's a total deviation of several orders of magnitude).</p>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">Eskdalemuir (ESK)</div>
+      <p class="info-card-text">British Geological Survey observatory in the Scottish Borders, running since 1908. One of three UK INTERMAGNET stations — the data here is the actual <strong>definitive 1-minute</strong> record.</p>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">Why three components?</div>
+      <p class="info-card-text">Bx (north), By (east), Bz (down). Together they reveal the full 3D shape of the disturbance to the magnetic field.</p>
+    </div>
+    <div class="info-card">
+      <div class="info-card-label">The SMILE mission</div>
+      <p class="info-card-text">ESA's SMILE satellite will image Earth's magnetosphere in <strong>X-rays</strong> — letting us watch the entire shield compress and recover during storms like this from space.</p>
+    </div>
+  </div>
+  <div class="citation-card">
+    <div class="citation-label">Data source</div>
+    <p class="citation-text">
+      Lawrence E, Beggan CD, Richardson GS et al. (2025).
+      <em>The geomagnetic and geoelectric response to the May 2024 geomagnetic storm in the United Kingdom.</em>
+      Front. Astron. Space Sci. 12:1550923.
+      <a href="https://doi.org/10.3389/fspas.2025.1550923" target="_blank">doi: 10.3389/fspas.2025.1550923</a><br>
+      <span style="color:var(--text-dim);font-size:10px;">Eskdalemuir 1-minute definitive data: INTERMAGNET / British Geological Survey (BGS). Baseline subtracted using 00:00–01:00 UT 10 May 2024. A big thank you to BGS, for supporting the ESK magnetometer operation and INTERMAGNET for promoting high standards of magnetic observatory practice (www.intermagnet.org).</span>
+    </p>
+  </div>
+  <hr class="divider">
+  <footer>
+    <p>Live sensor: Android Chrome · For the iPhone, I recommend: <a href="https://phyphox.org" target="_blank">Phyphox app</a> (Safari blocks magnetometer API) · HTTPS required for live mode</p>
+    <p style="margin-top:6px;opacity:.6;">Painting the Invisible · Pint of Science Lancaster</p>
+  </footer>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── Real ESK data (5-min, 10 May 00:00 – 11 May 23:55 UT) ──────────
+// Perturbations relative to 00:00-01:00 UT baseline on 10 May
+// Source: INTERMAGNET definitive data, BGS
+const LABELS = ["10 May 00:00","10 May 00:05","10 May 00:10","10 May 00:15","10 May 00:20","10 May 00:25","10 May 00:30","10 May 00:35","10 May 00:40","10 May 00:45","10 May 00:50","10 May 00:55","10 May 01:00","10 May 01:05","10 May 01:10","10 May 01:15","10 May 01:20","10 May 01:25","10 May 01:30","10 May 01:35","10 May 01:40","10 May 01:45","10 May 01:50","10 May 01:55","10 May 02:00","10 May 02:05","10 May 02:10","10 May 02:15","10 May 02:20","10 May 02:25","10 May 02:30","10 May 02:35","10 May 02:40","10 May 02:45","10 May 02:50","10 May 02:55","10 May 03:00","10 May 03:05","10 May 03:10","10 May 03:15","10 May 03:20","10 May 03:25","10 May 03:30","10 May 03:35","10 May 03:40","10 May 03:45","10 May 03:50","10 May 03:55","10 May 04:00","10 May 04:05","10 May 04:10","10 May 04:15","10 May 04:20","10 May 04:25","10 May 04:30","10 May 04:35","10 May 04:40","10 May 04:45","10 May 04:50","10 May 04:55","10 May 05:00","10 May 05:05","10 May 05:10","10 May 05:15","10 May 05:20","10 May 05:25","10 May 05:30","10 May 05:35","10 May 05:40","10 May 05:45","10 May 05:50","10 May 05:55","10 May 06:00","10 May 06:05","10 May 06:10","10 May 06:15","10 May 06:20","10 May 06:25","10 May 06:30","10 May 06:35","10 May 06:40","10 May 06:45","10 May 06:50","10 May 06:55","10 May 07:00","10 May 07:05","10 May 07:10","10 May 07:15","10 May 07:20","10 May 07:25","10 May 07:30","10 May 07:35","10 May 07:40","10 May 07:45","10 May 07:50","10 May 07:55","10 May 08:00","10 May 08:05","10 May 08:10","10 May 08:15","10 May 08:20","10 May 08:25","10 May 08:30","10 May 08:35","10 May 08:40","10 May 08:45","10 May 08:50","10 May 08:55","10 May 09:00","10 May 09:05","10 May 09:10","10 May 09:15","10 May 09:20","10 May 09:25","10 May 09:30","10 May 09:35","10 May 09:40","10 May 09:45","10 May 09:50","10 May 09:55","10 May 10:00","10 May 10:05","10 May 10:10","10 May 10:15","10 May 10:20","10 May 10:25","10 May 10:30","10 May 10:35","10 May 10:40","10 May 10:45","10 May 10:50","10 May 10:55","10 May 11:00","10 May 11:05","10 May 11:10","10 May 11:15","10 May 11:20","10 May 11:25","10 May 11:30","10 May 11:35","10 May 11:40","10 May 11:45","10 May 11:50","10 May 11:55","10 May 12:00","10 May 12:05","10 May 12:10","10 May 12:15","10 May 12:20","10 May 12:25","10 May 12:30","10 May 12:35","10 May 12:40","10 May 12:45","10 May 12:50","10 May 12:55","10 May 13:00","10 May 13:05","10 May 13:10","10 May 13:15","10 May 13:20","10 May 13:25","10 May 13:30","10 May 13:35","10 May 13:40","10 May 13:45","10 May 13:50","10 May 13:55","10 May 14:00","10 May 14:05","10 May 14:10","10 May 14:15","10 May 14:20","10 May 14:25","10 May 14:30","10 May 14:35","10 May 14:40","10 May 14:45","10 May 14:50","10 May 14:55","10 May 15:00","10 May 15:05","10 May 15:10","10 May 15:15","10 May 15:20","10 May 15:25","10 May 15:30","10 May 15:35","10 May 15:40","10 May 15:45","10 May 15:50","10 May 15:55","10 May 16:00","10 May 16:05","10 May 16:10","10 May 16:15","10 May 16:20","10 May 16:25","10 May 16:30","10 May 16:35","10 May 16:40","10 May 16:45","10 May 16:50","10 May 16:55","10 May 17:00","10 May 17:05","10 May 17:10","10 May 17:15","10 May 17:20","10 May 17:25","10 May 17:30","10 May 17:35","10 May 17:40","10 May 17:45","10 May 17:50","10 May 17:55","10 May 18:00","10 May 18:05","10 May 18:10","10 May 18:15","10 May 18:20","10 May 18:25","10 May 18:30","10 May 18:35","10 May 18:40","10 May 18:45","10 May 18:50","10 May 18:55","10 May 19:00","10 May 19:05","10 May 19:10","10 May 19:15","10 May 19:20","10 May 19:25","10 May 19:30","10 May 19:35","10 May 19:40","10 May 19:45","10 May 19:50","10 May 19:55","10 May 20:00","10 May 20:05","10 May 20:10","10 May 20:15","10 May 20:20","10 May 20:25","10 May 20:30","10 May 20:35","10 May 20:40","10 May 20:45","10 May 20:50","10 May 20:55","10 May 21:00","10 May 21:05","10 May 21:10","10 May 21:15","10 May 21:20","10 May 21:25","10 May 21:30","10 May 21:35","10 May 21:40","10 May 21:45","10 May 21:50","10 May 21:55","10 May 22:00","10 May 22:05","10 May 22:10","10 May 22:15","10 May 22:20","10 May 22:25","10 May 22:30","10 May 22:35","10 May 22:40","10 May 22:45","10 May 22:50","10 May 22:55","10 May 23:00","10 May 23:05","10 May 23:10","10 May 23:15","10 May 23:20","10 May 23:25","10 May 23:30","10 May 23:35","10 May 23:40","10 May 23:45","10 May 23:50","10 May 23:55","11 May 00:00","11 May 00:05","11 May 00:10","11 May 00:15","11 May 00:20","11 May 00:25","11 May 00:30","11 May 00:35","11 May 00:40","11 May 00:45","11 May 00:50","11 May 00:55","11 May 01:00","11 May 01:05","11 May 01:10","11 May 01:15","11 May 01:20","11 May 01:25","11 May 01:30","11 May 01:35","11 May 01:40","11 May 01:45","11 May 01:50","11 May 01:55","11 May 02:00","11 May 02:05","11 May 02:10","11 May 02:15","11 May 02:20","11 May 02:25","11 May 02:30","11 May 02:35","11 May 02:40","11 May 02:45","11 May 02:50","11 May 02:55","11 May 03:00","11 May 03:05","11 May 03:10","11 May 03:15","11 May 03:20","11 May 03:25","11 May 03:30","11 May 03:35","11 May 03:40","11 May 03:45","11 May 03:50","11 May 03:55","11 May 04:00","11 May 04:05","11 May 04:10","11 May 04:15","11 May 04:20","11 May 04:25","11 May 04:30","11 May 04:35","11 May 04:40","11 May 04:45","11 May 04:50","11 May 04:55","11 May 05:00","11 May 05:05","11 May 05:10","11 May 05:15","11 May 05:20","11 May 05:25","11 May 05:30","11 May 05:35","11 May 05:40","11 May 05:45","11 May 05:50","11 May 05:55","11 May 06:00","11 May 06:05","11 May 06:10","11 May 06:15","11 May 06:20","11 May 06:25","11 May 06:30","11 May 06:35","11 May 06:40","11 May 06:45","11 May 06:50","11 May 06:55","11 May 07:00","11 May 07:05","11 May 07:10","11 May 07:15","11 May 07:20","11 May 07:25","11 May 07:30","11 May 07:35","11 May 07:40","11 May 07:45","11 May 07:50","11 May 07:55","11 May 08:00","11 May 08:05","11 May 08:10","11 May 08:15","11 May 08:20","11 May 08:25","11 May 08:30","11 May 08:35","11 May 08:40","11 May 08:45","11 May 08:50","11 May 08:55","11 May 09:00","11 May 09:05","11 May 09:10","11 May 09:15","11 May 09:20","11 May 09:25","11 May 09:30","11 May 09:35","11 May 09:40","11 May 09:45","11 May 09:50","11 May 09:55","11 May 10:00","11 May 10:05","11 May 10:10","11 May 10:15","11 May 10:20","11 May 10:25","11 May 10:30","11 May 10:35","11 May 10:40","11 May 10:45","11 May 10:50","11 May 10:55","11 May 11:00","11 May 11:05","11 May 11:10","11 May 11:15","11 May 11:20","11 May 11:25","11 May 11:30","11 May 11:35","11 May 11:40","11 May 11:45","11 May 11:50","11 May 11:55","11 May 12:00","11 May 12:05","11 May 12:10","11 May 12:15","11 May 12:20","11 May 12:25","11 May 12:30","11 May 12:35","11 May 12:40","11 May 12:45","11 May 12:50","11 May 12:55","11 May 13:00","11 May 13:05","11 May 13:10","11 May 13:15","11 May 13:20","11 May 13:25","11 May 13:30","11 May 13:35","11 May 13:40","11 May 13:45","11 May 13:50","11 May 13:55","11 May 14:00","11 May 14:05","11 May 14:10","11 May 14:15","11 May 14:20","11 May 14:25","11 May 14:30","11 May 14:35","11 May 14:40","11 May 14:45","11 May 14:50","11 May 14:55","11 May 15:00","11 May 15:05","11 May 15:10","11 May 15:15","11 May 15:20","11 May 15:25","11 May 15:30","11 May 15:35","11 May 15:40","11 May 15:45","11 May 15:50","11 May 15:55","11 May 16:00","11 May 16:05","11 May 16:10","11 May 16:15","11 May 16:20","11 May 16:25","11 May 16:30","11 May 16:35","11 May 16:40","11 May 16:45","11 May 16:50","11 May 16:55","11 May 17:00","11 May 17:05","11 May 17:10","11 May 17:15","11 May 17:20","11 May 17:25","11 May 17:30","11 May 17:35","11 May 17:40","11 May 17:45","11 May 17:50","11 May 17:55","11 May 18:00","11 May 18:05","11 May 18:10","11 May 18:15","11 May 18:20","11 May 18:25","11 May 18:30","11 May 18:35","11 May 18:40","11 May 18:45","11 May 18:50","11 May 18:55","11 May 19:00","11 May 19:05","11 May 19:10","11 May 19:15","11 May 19:20","11 May 19:25","11 May 19:30","11 May 19:35","11 May 19:40","11 May 19:45","11 May 19:50","11 May 19:55","11 May 20:00","11 May 20:05","11 May 20:10","11 May 20:15","11 May 20:20","11 May 20:25","11 May 20:30","11 May 20:35","11 May 20:40","11 May 20:45","11 May 20:50","11 May 20:55","11 May 21:00","11 May 21:05","11 May 21:10","11 May 21:15","11 May 21:20","11 May 21:25","11 May 21:30","11 May 21:35","11 May 21:40","11 May 21:45","11 May 21:50","11 May 21:55","11 May 22:00","11 May 22:05","11 May 22:10","11 May 22:15","11 May 22:20","11 May 22:25","11 May 22:30","11 May 22:35","11 May 22:40","11 May 22:45","11 May 22:50","11 May 22:55","11 May 23:00","11 May 23:05","11 May 23:10","11 May 23:15","11 May 23:20","11 May 23:25","11 May 23:30","11 May 23:35","11 May 23:40","11 May 23:45","11 May 23:50","11 May 23:55"];
+const ESK_BX = [4.1,3.7,4.2,3.7,2.5,-2.0,-5.2,-7.4,-5.8,0.0,1.1,2.2,4.0,3.1,3.4,-0.2,-4.6,-9.5,-14.5,-15.0,-16.0,-15.6,-14.3,-10.2,-11.7,-13.5,-13.1,-12.7,-11.2,-15.5,-14.7,-8.9,-11.6,-7.5,-8.0,-11.6,-11.2,-11.9,-2.7,-1.1,-5.2,1.9,2.5,-8.9,-2.0,-4.9,-1.1,-2.6,-3.5,-3.1,-2.5,1.6,1.1,2.5,1.8,0.0,-2.7,-2.2,-5.7,-5.6,-6.1,-7.2,-6.9,-8.6,-6.9,-6.4,-8.1,-7.2,-7.6,-10.6,-9.8,-10.9,-9.8,-9.5,-8.6,-8.0,-6.8,-7.0,-7.4,-9.8,-9.9,-11.0,-11.2,-12.1,-15.7,-15.7,-16.1,-19.9,-24.6,-31.0,-30.0,-27.0,-26.7,-27.2,-28.8,-30.4,-31.6,-36.5,-36.8,-38.7,-41.2,-45.1,-40.8,-42.8,-41.1,-43.1,-44.3,-44.0,-43.5,-49.9,-42.3,-46.7,-47.1,-42.4,-39.6,-50.3,-46.2,-44.3,-41.4,-41.6,-47.9,-41.5,-38.4,-43.5,-45.2,-45.1,-44.3,-47.0,-44.2,-46.0,-47.1,-52.6,-54.7,-54.6,-51.9,-52.9,-49.9,-48.8,-50.4,-53.1,-54.3,-54.4,-56.9,-55.7,-62.8,-58.6,-58.2,-62.6,-60.1,-57.5,-54.9,-57.8,-53.8,-52.0,-55.7,-57.9,-57.5,-53.7,-51.4,-42.7,-51.0,-52.7,-51.7,-47.3,-46.5,-43.9,-41.2,-26.3,-30.1,-29.8,-29.6,-29.6,-25.4,-17.6,-30.4,-35.8,-41.2,-46.6,-35.1,-27.5,-1.0,-9.8,-13.6,-28.2,-26.5,-15.6,-40.8,-10.6,-24.1,-5.2,-8.4,-9.6,-6.0,-11.9,-21.8,-24.7,-32.2,-32.3,-31.5,-14.6,-13.3,4.4,-9.3,-4.3,-12.8,-16.8,102.3,92.3,194.0,273.3,282.2,319.2,443.5,349.8,287.7,257.2,205.2,165.2,155.7,144.8,180.6,205.5,221.5,178.0,159.9,52.9,120.3,123.5,103.8,100.4,76.9,45.9,18.0,31.8,74.1,19.7,69.2,63.9,103.8,59.8,-23.5,-53.3,-2.5,55.0,-288.7,-72.2,137.3,301.9,277.4,269.8,53.5,-71.0,-106.5,-230.5,-281.4,-377.6,-409.4,-467.0,-538.9,-615.4,-691.5,-268.3,-327.1,-418.0,-313.6,-474.3,-563.0,-542.1,-754.4,-556.3,-626.6,-956.6,-345.4,-362.8,-310.2,-99.8,-544.1,-487.2,-347.0,-116.3,6.1,-45.2,-20.1,23.2,-1.6,25.1,-36.4,-103.3,-133.9,-138.6,-278.2,-397.0,-593.5,-571.0,-666.1,-482.6,-416.5,-684.2,-843.9,-861.2,-771.5,-780.4,-903.3,-545.9,-439.1,-495.3,-434.4,-591.3,-681.6,-795.3,-857.1,-1096.9,-799.7,-708.4,-677.6,-682.0,-588.4,-648.3,-660.4,-580.6,-866.3,-939.6,-1223.5,-1029.1,-989.0,-1267.9,-1154.5,-967.7,-975.7,-748.8,-578.1,-524.2,-430.4,-404.8,-446.3,-327.7,-355.4,-319.0,-324.3,-368.1,-511.5,-402.1,-403.0,-436.8,-276.2,-391.3,-449.5,-380.5,-261.7,-289.5,-274.5,-244.8,-247.1,-186.4,-154.4,-182.3,-187.5,-164.6,-193.9,-195.3,-187.5,-173.4,-187.0,-124.3,-181.6,-286.5,-330.8,-390.0,-415.9,-510.8,-451.5,-424.5,-502.4,-493.1,-505.5,-523.9,-504.6,-500.2,-521.1,-532.2,-397.4,-358.7,-331.2,-254.5,-169.2,-185.9,-264.7,-331.6,-443.5,-363.1,-323.2,-283.0,-275.0,-371.3,-317.4,-316.5,-319.6,-336.8,-300.4,-354.0,-326.1,-359.2,-339.1,-336.9,-669.6,-635.2,-608.1,-543.4,-518.5,-388.4,-335.4,-290.6,-322.9,-264.9,-339.0,-226.3,-194.9,-155.8,-137.3,-131.8,-173.0,-186.7,-173.1,-156.5,-136.9,-58.8,6.6,-128.8,-62.3,80.0,118.2,199.2,108.9,8.6,45.1,-16.1,34.4,-22.5,-82.8,-88.3,-84.1,-197.7,-256.2,-176.8,-181.5,-189.5,-126.6,-81.2,-35.1,-51.5,-53.0,-77.2,-58.8,-15.5,-60.3,-59.3,-3.2,20.6,30.5,69.4,83.2,163.6,278.2,268.6,231.3,271.8,268.7,383.3,402.1,397.0,461.9,380.8,366.9,344.5,367.5,285.8,330.0,349.0,357.2,431.9,361.4,267.7,243.4,213.0,199.1,173.8,147.3,105.4,100.2,40.6,37.1,29.4,42.5,46.5,124.2,143.2,93.1,67.2,111.6,176.7,237.8,74.9,-46.8,-54.9,46.5,56.4,-36.6,-0.7,29.2,43.9,-11.7,-72.5,-46.0,22.7,-48.6,-47.7,-63.9,-41.4,-36.0,-27.2,5.1,38.4,2.5,-65.2,-46.6,-66.4,-65.7,-95.4,-144.0,-119.1,-139.9,-64.8,-82.6,-79.9,-42.8,-64.8,-47.9,152.7,8.5,24.5,118.1,97.7,30.2,-141.1,-166.3,-106.8,12.7,36.7,-10.3,-97.6,-124.3,-137.6,-88.8,-69.4,-31.4,-39.5,-78.4,-81.8,-66.2,-79.5,-89.0,-95.7,-89.5,-97.4,-106.9,-106.2,-101.8,-96.7,-81.2,-86.0,-70.6,-86.4,-94.2,-79.5,-76.8,-85.5];
+const ESK_BY = [0.1,0.5,-0.5,-0.9,2.4,5.6,4.6,4.0,-0.7,-6.5,-4.2,-3.8,-2.8,-3.5,-2.4,-5.9,-7.7,-9.1,-11.8,-13.6,-13.3,-7.5,0.2,8.9,17.9,22.4,21.3,18.5,14.8,16.8,18.6,13.8,17.6,15.4,13.7,17.6,18.4,17.5,17.2,14.3,12.7,10.3,6.9,17.4,20.6,23.0,21.1,22.8,25.7,28.2,30.0,31.6,35.8,34.3,35.6,36.0,35.8,34.4,34.2,35.2,37.3,38.0,36.4,38.8,38.9,39.9,40.4,41.0,39.7,42.8,40.1,39.7,40.8,43.0,42.4,42.8,42.5,44.7,42.7,47.7,47.7,52.9,56.7,59.7,63.4,62.2,61.8,61.4,59.8,66.4,64.9,60.4,59.1,56.0,54.5,52.2,50.7,51.8,51.2,50.2,51.3,53.3,46.4,47.1,45.0,45.7,47.3,48.1,46.7,51.2,45.0,43.6,48.3,44.5,41.2,43.6,42.4,41.9,38.7,36.6,34.2,33.0,29.8,28.3,28.2,25.8,22.3,21.0,19.2,15.9,15.2,11.8,9.9,7.2,6.0,2.7,0.1,-2.3,-3.7,-5.2,-6.8,-8.0,-8.7,-9.9,-8.1,-12.3,-15.3,-14.8,-16.8,-19.0,-21.5,-21.3,-23.5,-25.4,-25.5,-26.1,-26.7,-27.6,-28.7,-35.9,-31.0,-28.9,-29.4,-30.5,-30.5,-30.6,-32.5,-39.4,-38.5,-40.6,-42.4,-43.7,-43.5,-46.4,-37.9,-36.4,-34.6,-28.4,-34.2,-37.2,-55.0,-46.8,-44.8,-37.3,-37.2,-40.8,-26.5,-39.6,-35.7,-41.6,-40.6,-36.3,-37.3,-35.4,-30.4,-26.9,-24.2,-22.6,-21.7,-28.8,-27.8,-34.4,-27.9,-27.8,-23.8,-18.2,-78.6,-54.0,-78.6,-104.7,-85.7,-86.9,-123.4,-101.2,-107.6,-115.3,-111.1,-102.1,-98.7,-77.5,-67.7,-102.4,-124.2,-31.4,7.7,-20.5,-30.4,34.0,28.4,36.6,-15.3,-95.0,11.0,-20.8,-69.7,37.7,5.3,-3.0,-14.1,-48.2,-22.9,28.2,38.1,-44.1,-175.0,-175.9,-21.0,-0.8,-88.2,-13.9,56.9,95.3,116.8,119.6,114.6,158.5,133.5,117.6,90.3,49.2,96.5,0.2,18.0,50.3,8.3,-7.8,-15.1,1.1,230.5,178.3,190.5,136.8,48.3,26.9,143.4,64.6,-24.3,-65.9,-35.6,-29.4,-85.4,-81.6,-76.6,-62.5,-39.6,-88.6,-8.5,10.5,51.7,58.3,78.2,86.7,127.3,230.3,248.0,284.5,225.0,209.2,195.4,157.7,11.4,75.7,392.0,-143.4,-29.7,111.7,117.7,149.8,256.2,204.1,290.8,443.8,299.2,264.4,295.7,313.7,346.5,344.6,424.1,395.1,399.3,352.8,303.9,279.5,250.2,640.9,495.0,498.7,456.0,287.4,322.5,328.1,325.6,318.1,332.6,273.3,287.2,299.6,238.6,211.3,382.6,318.2,238.3,221.5,69.4,222.6,296.8,228.7,231.3,276.8,304.9,300.4,285.0,240.6,240.6,242.7,227.0,203.6,182.9,150.0,170.1,207.4,227.6,211.7,185.0,161.9,108.0,148.8,206.1,239.0,145.0,153.5,130.9,69.0,75.2,21.0,26.8,47.2,99.4,83.2,41.4,56.7,79.9,49.3,-3.0,46.1,41.8,106.7,213.2,113.6,133.4,82.3,34.7,127.5,124.4,155.3,118.4,133.4,115.1,130.6,130.3,122.6,98.9,95.3,410.6,328.0,145.9,203.8,107.3,97.0,56.5,-18.2,35.0,4.5,13.2,-12.0,38.6,-40.1,-10.7,4.0,20.7,29.6,6.7,-12.6,-17.3,33.2,-0.8,-36.3,-30.9,-41.6,14.6,-17.8,52.7,36.3,28.3,-26.0,15.5,55.0,51.4,42.7,68.9,68.5,101.3,97.8,88.9,98.8,83.8,76.9,64.7,70.6,91.1,79.2,64.6,64.2,68.5,57.2,64.4,39.5,42.9,20.0,14.9,22.0,-1.0,54.4,136.6,111.7,79.4,95.9,40.1,39.6,67.1,37.0,81.6,25.7,2.8,40.6,11.8,-14.7,-32.7,-36.7,-20.6,10.9,-23.9,-30.9,-40.8,-27.6,-9.9,-3.0,-1.5,16.9,-16.3,-20.6,-28.0,-17.0,-21.2,7.9,14.8,14.4,-8.1,30.0,17.2,-128.1,79.3,-10.2,71.5,-30.9,18.9,14.1,-16.3,-13.8,-32.4,14.3,6.7,5.6,20.7,21.9,0.0,-7.2,-8.9,-1.6,-12.8,-32.3,-28.4,-12.7,-18.5,10.2,6.8,-15.8,5.6,-10.5,4.8,-11.1,-18.3,-14.9,-37.6,-24.5,-30.9,-24.1,81.1,50.1,-1.1,-47.7,-160.1,-96.3,22.0,120.1,90.6,-12.6,-42.9,-22.6,-14.2,6.5,34.2,21.1,7.5,-20.4,5.3,10.1,6.1,1.9,21.4,45.0,70.8,54.2,54.5,45.5,34.2,21.6,26.8,20.1,6.3,19.0,14.5,12.9,17.5,22.7];
+const ESK_BZ = [-0.2,-0.1,-0.1,-0.1,-0.1,0.4,1.0,1.3,1.0,0.0,-1.0,-1.7,-2.4,-3.1,-3.8,-4.2,-4.6,-5.1,-5.4,-6.3,-7.4,-8.6,-9.6,-10.3,-10.3,-9.7,-9.0,-8.2,-8.1,-6.8,-6.1,-6.2,-5.4,-5.3,-5.0,-3.9,-3.3,-2.6,-2.5,-2.9,-2.6,-2.8,-2.6,-1.6,-1.5,-0.4,-0.5,-0.3,-0.3,-0.5,-0.6,-1.3,-1.3,-1.9,-2.6,-2.8,-2.9,-3.2,-3.2,-3.3,-3.1,-2.8,-2.8,-2.4,-2.6,-2.3,-1.8,-1.8,-1.7,-1.2,-1.2,-0.9,-0.7,-0.7,-0.7,-0.6,-0.5,-0.4,-0.1,0.6,0.9,1.5,1.8,2.5,3.8,4.5,4.8,4.9,5.1,5.2,4.7,3.8,3.5,3.4,3.2,3.1,2.8,2.8,2.3,2.0,1.7,1.0,-0.2,-1.0,-2.3,-2.9,-3.6,-4.0,-4.8,-4.5,-6.2,-6.0,-6.7,-8.5,-9.5,-9.0,-10.8,-12.6,-14.6,-15.9,-16.9,-18.2,-20.1,-20.5,-21.2,-22.0,-22.6,-22.8,-23.7,-24.0,-24.4,-24.2,-24.2,-24.1,-24.8,-24.6,-24.7,-25.0,-24.8,-24.4,-24.3,-24.0,-23.4,-23.1,-22.1,-22.1,-21.9,-21.1,-20.8,-20.8,-20.9,-20.4,-20.2,-19.8,-18.8,-17.9,-17.1,-16.6,-16.0,-15.7,-14.0,-12.9,-12.4,-12.2,-11.7,-11.2,-10.7,-11.3,-10.6,-9.5,-8.5,-7.5,-7.0,-6.4,-4.6,-3.5,-2.5,-1.8,-2.4,-2.7,-2.9,-1.4,-0.1,1.2,1.3,0.3,2.5,0.5,2.0,1.6,2.7,4.0,4.2,4.7,5.3,5.4,5.9,6.0,5.8,5.1,5.0,3.6,4.4,4.6,5.0,6.0,-10.2,-6.4,-7.1,-9.3,-4.4,-0.7,-2.6,2.6,7.9,7.9,12.3,12.5,13.8,15.3,26.6,34.8,51.3,64.9,47.7,19.1,20.4,14.1,2.4,7.6,22.0,31.8,94.4,97.9,129.3,149.3,106.0,107.9,41.7,39.6,50.4,79.4,91.7,90.2,-25.1,202.7,282.3,200.9,146.2,48.8,-84.2,-123.4,-64.3,-68.4,-38.5,-51.5,-61.5,-85.1,-61.6,-19.4,29.3,65.9,107.2,151.5,126.5,158.0,201.1,117.9,125.9,67.9,157.3,250.0,203.6,262.2,313.3,245.7,429.0,473.9,506.7,509.9,433.6,350.5,301.0,259.8,242.6,245.6,224.1,192.7,147.8,129.2,130.2,153.3,159.4,113.3,143.4,68.8,131.2,89.3,-45.4,9.6,54.4,1.9,114.2,236.7,-72.1,-245.7,-261.6,-383.6,-448.4,-436.4,-336.9,-314.3,-243.2,-292.9,-238.1,-191.5,-146.2,-119.1,-33.9,1.5,80.8,171.8,273.3,328.2,-38.5,-207.9,-270.1,-214.3,-123.2,-165.9,-205.2,-233.2,-303.2,-287.4,-265.0,-176.2,-159.6,-160.4,-154.4,-175.4,-203.8,-234.1,-232.8,-237.8,-214.7,-219.3,-218.4,-243.0,-198.1,-174.0,-149.6,-95.3,-115.0,-91.4,-69.3,-61.5,-64.2,-68.5,-68.6,-80.7,-89.8,-98.9,-92.4,-86.3,-82.2,-85.3,-101.2,-118.2,-125.5,-109.2,-116.6,-129.8,-143.6,-168.5,-199.9,-217.8,-232.8,-235.1,-243.5,-214.9,-204.2,-188.5,-159.6,-146.3,-131.9,-91.2,-98.4,-66.3,-55.1,-54.0,-52.5,-64.5,-39.5,-34.7,-45.4,-34.4,-7.7,5.3,1.8,2.1,1.8,-5.8,-18.6,-15.9,13.0,18.5,23.1,9.0,7.0,-6.6,2.0,-14.3,1.2,-16.1,-17.7,-12.5,4.2,-8.5,1.7,13.4,10.9,15.4,15.6,18.5,26.5,24.6,15.6,9.9,14.5,12.1,37.3,76.4,90.2,86.1,80.3,91.7,102.9,93.7,100.2,108.3,100.3,115.3,138.0,154.4,143.8,136.8,144.3,158.6,165.7,176.4,185.8,189.9,211.4,226.1,246.3,271.8,282.9,276.9,283.7,297.9,328.2,344.7,321.4,349.1,355.6,306.5,317.9,341.4,300.3,338.6,348.1,331.8,362.4,325.3,274.7,297.9,300.6,275.5,292.3,295.9,278.0,249.4,245.0,225.3,214.6,214.4,213.2,204.3,205.3,201.9,199.0,202.6,205.4,217.0,218.0,215.7,184.8,182.5,194.6,189.7,155.4,59.9,166.6,68.5,110.5,69.6,81.2,89.5,89.2,86.0,92.2,106.5,118.5,116.8,117.4,116.9,113.2,112.4,111.1,116.3,102.4,89.6,90.7,98.5,100.5,110.9,107.3,100.0,103.0,100.5,109.8,105.4,98.8,92.2,83.2,79.8,81.0,117.4,109.8,54.4,26.6,7.1,-23.3,-26.1,-20.1,1.6,-4.8,-13.5,-12.4,0.0,2.8,10.1,18.5,19.5,16.9,12.6,20.2,22.7,22.1,23.0,28.3,36.9,46.1,48.5,54.1,59.2,60.6,58.7,59.4,58.3,55.3,54.5,55.2,52.2,50.8,49.2];
+
+// Phase boundaries (5-min index)
+// quiet: 0-205  |  ssc: 206-219  |  main: 220-400  |  recovery: 401-575
+const PHASES=[
+  {start:0,  end:206, label:'Pre-storm quiet',             cls:'quiet',    col:'rgba(77,217,172,.8)'},
+  {start:206,end:220, label:'SSC — shockwave arrives',cls:'ssc',      col:'rgba(240,184,74,.9)'},
+  {start:220,end:401, label:'Main phase — field collapses',cls:'main',col:'rgba(224,108,160,.9)'},
+  {start:401,end:9999,label:'Recovery phase',              cls:'recovery', col:'rgba(90,180,245,.8)'},
+];
+
+// ── state ──────────────────────────────────────────────────────────
+const BASE={x:30.2,y:-2.1,z:38.4};
+let mode='live', dataset='3c', sensor=null, timer=null, idx=0;
+let chart1=null, chart3=null;
+const STEP_MS=250; // 250ms per 5-min step → full 48h storm in ~144s (~2.4 min)
+
+// ── mode switching ─────────────────────────────────────────────────
+function setMode(m){
+  stopAll(); mode=m;
+  document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+m).classList.add('active');
+  const mainBtn=document.getElementById('main-btn');
+  const stormBtn=document.getElementById('storm-btn');
+  const tw=document.getElementById('timeline-wrap');
+  const note=document.getElementById('iphone-note');
+  document.getElementById('storm-alert').classList.remove('visible');
+  note.classList.remove('visible');
+  if(m==='live'){
+    mainBtn.style.display='';mainBtn.textContent='Start sensor';mainBtn.className='btn';mainBtn.onclick=mainAction;
+    stormBtn.style.display='none';tw.style.display='none';
+    const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if(isIOS||isSafari)note.classList.add('visible');
+    setStatus('Tap start to read your device magnetometer');
+    document.getElementById('total-unit').textContent='µT · total field strength';
+    showBase();
+  } else {
+    mainBtn.style.display='none';
+    stormBtn.style.display='';stormBtn.disabled=false;stormBtn.textContent='Play storm';
+    tw.style.display='block';
+    initCharts(); updateDatasetUI(); showBase();
+    setPhase(null);
+    document.getElementById('tlclock').textContent='10 May 00:00 UT';
+    setStatus('Press play to replay the Gannon storm at Eskdalemuir','sim');
+  }
+}
+
+// ── dataset toggle ─────────────────────────────────────────────────
+function setDataset(ds){
+  dataset=ds;
+  ['3c','bx'].forEach(d=>{document.getElementById('ds-'+d).className='ds-btn'+(d===ds?' active':'');});
+  updateDatasetUI();
+  if(timer){clearInterval(timer);timer=null;idx=0;runStorm();}
+}
+
+function updateDatasetUI(){
+  const is3c=dataset==='3c';
+  document.getElementById('chart3-wrap').style.display=is3c?'block':'none';
+  document.getElementById('chart1-wrap').style.display=is3c?'none':'block';
+  document.getElementById('rb-wrap').style.display=is3c?'none':'flex';
+  document.getElementById('comp-legend').style.display=is3c?'flex':'none';
+  document.getElementById('tl-title').textContent=is3c
+    ?'ESK Bx/By/Bz · Gannon storm · 10–11 May 2024'
+    :'ESK Bx (northward) · Gannon storm · 10–11 May 2024';
+  document.getElementById('total-unit').textContent=is3c?'µT · gauge (|ESK H|)':'µT · gauge (ESK Bx)';
+  if(chart1){chart1.options.scales.y.min=-1400;chart1.options.scales.y.max=550;chart1.update('none');}
+}
+
+// ── live sensor ────────────────────────────────────────────────────
+function mainAction(){
+  if(sensor){stopSensor();return;}
+  if(typeof Magnetometer==='undefined'){
+    setStatus('Magnetometer API unavailable — try Android Chrome, or use Phyphox on iPhone','error');
+    document.getElementById('iphone-note').classList.add('visible'); return;
+  }
+  navigator.permissions.query({name:'magnetometer'}).then(res=>{
+    if(res.state==='denied'){setStatus('Permission denied — check browser site settings and reload.','error');return;}
+    try{
+      sensor=new Magnetometer({frequency:10});
+      sensor.addEventListener('reading',()=>{updateUI(sensor.x,sensor.y,sensor.z);setStatus('Live reading — bring a magnet close to watch the needle move','live');});
+      sensor.addEventListener('error',e=>setStatus('Sensor error: '+e.error.message,'error'));
+      sensor.start();
+      const btn=document.getElementById('main-btn');btn.textContent='Stop sensor';btn.classList.add('running');
+      setStatus('Starting sensor…');
+    }catch(e){setStatus('Could not start: '+e.message,'error');}
+  }).catch(()=>setStatus('Permission query failed — page must be served over HTTPS.','error'));
+}
+function stopSensor(){
+  if(!sensor)return;sensor.stop();sensor=null;
+  const btn=document.getElementById('main-btn');btn.textContent='Start sensor';btn.classList.remove('running');
+  setStatus('Stopped.');showBase();
+}
+
+// ── storm replay ───────────────────────────────────────────────────
+function runStorm(){
+  if(timer){clearInterval(timer);timer=null;}
+  idx=0;
+  const btn=document.getElementById('storm-btn');
+  btn.textContent='Playing…';btn.disabled=true;
+  if(chart3){chart3.data.labels=[];[0,1,2].forEach(i=>chart3.data.datasets[i].data=[]);chart3.update('none');}
+  if(chart1){chart1.data.labels=[];chart1.data.datasets[0].data=[];chart1.data.datasets[0].pointBackgroundColor=[];chart1.data.datasets[0].pointRadius=[];chart1.update('none');}
+  document.getElementById('storm-alert').classList.remove('visible');
+  setPhase(PHASES[0]);
+
+  function tick(){
+    if(idx>=LABELS.length){
+      clearInterval(timer);timer=null;btn.textContent='Play storm';btn.disabled=false;
+      document.getElementById('storm-alert').classList.remove('visible');
+      setStatus('Storm replay complete','sim');return;
+    }
+    const bx=ESK_BX[idx],by=ESK_BY[idx],bz=ESK_BZ[idx],lbl=LABELS[idx];
+    const phase=PHASES.find(p=>idx>=p.start&&idx<p.end)||PHASES[PHASES.length-1];
+
+    // gauge driven by horizontal magnitude
+    const h=Math.sqrt(bx*bx+by*by);
+    const tot=Math.max(3,49+h*0.025*(bx<0?-1:1));
+    const ang=Math.atan2(BASE.z,BASE.x)+(phase.cls!=='quiet'?(Math.random()-.5)*.1:0);
+    const sc=tot/49;
+    updateUI(tot*Math.cos(ang)*.78,BASE.y*sc,tot*Math.sin(ang)*.78);
+
+    document.getElementById('tlclock').textContent=lbl+' UT';
+    setPhase(phase);
+    document.getElementById('storm-alert').classList[phase.cls==='main'||phase.cls==='ssc'?'add':'remove']('visible');
+
+    if(dataset==='bx'){
+      const rbEl=document.getElementById('rb-value');
+      rbEl.textContent=(bx>=0?'+':'')+Math.round(bx)+' nT';
+      rbEl.style.color=bx<-800?'var(--pink)':bx<-300?'var(--amber)':bx<0?'var(--blue)':'var(--teal)';
+    }
+
+    const msgs={
+      quiet:   'Pre-storm quiet — ESK field at background levels',
+      ssc:     'Sudden storm commencement — CME shockwave hits, Bx = +'+Math.round(bx)+' nT',
+      main:    'Main phase — ESK Bx = '+Math.round(bx)+' nT, aurora visible across the UK',
+      recovery:'Recovery — ESK Bx = '+Math.round(bx)+' nT',
+    };
+    setStatus(msgs[phase.cls]||'','sim');
+
+    const isTransition=PHASES.some(p=>p.start===idx&&idx>0);
+    if(dataset==='3c'){
+      chart3.data.labels.push(lbl);
+      chart3.data.datasets[0].data.push(bx);
+      chart3.data.datasets[1].data.push(by);
+      chart3.data.datasets[2].data.push(bz);
+      if(chart3.data.labels.length>48){chart3.options.scales.x.min=chart3.data.labels[chart3.data.labels.length-48];chart3.options.scales.x.max=undefined;}
+      chart3.update('none');
+    } else {
+      chart1.data.labels.push(lbl);
+      chart1.data.datasets[0].data.push(bx);
+      chart1.data.datasets[0].pointBackgroundColor.push(phase.col);
+      chart1.data.datasets[0].pointRadius.push(isTransition?5:0);
+      if(chart1.data.labels.length>48){chart1.options.scales.x.min=chart1.data.labels[chart1.data.labels.length-48];chart1.options.scales.x.max=undefined;}
+      chart1.update('none');
+    }
+    idx++;
+  }
+  tick();timer=setInterval(tick,STEP_MS);
+}
+
+// ── charts ─────────────────────────────────────────────────────────
+function initCharts(){
+  if(chart1){chart1.destroy();chart1=null;}
+  if(chart3){chart3.destroy();chart3=null;}
+  const grid={color:'rgba(100,180,255,.06)',drawTicks:false};
+  const brd={color:'rgba(100,180,255,.15)'};
+  const tickX={color:'rgba(180,210,240,.4)',font:{family:'DM Mono,monospace',size:8},maxTicksLimit:6,maxRotation:0,autoSkip:true,
+    callback:v=>typeof v==='string'?v.replace(' May',''):v};
+  const tickY={color:'rgba(180,210,240,.4)',font:{family:'DM Mono,monospace',size:8},maxTicksLimit:5,callback:v=>v+' nT'};
+  const tt={backgroundColor:'#0d1829',borderColor:'rgba(100,180,255,.2)',borderWidth:1,titleColor:'#5ab4f5',bodyColor:'#ddeeff',
+    callbacks:{label:c=>c.dataset.label+': '+Math.round(c.parsed.y)+' nT'}};
+
+  const ctx1=document.getElementById('tc').getContext('2d');
+  chart1=new Chart(ctx1,{type:'line',data:{labels:[],datasets:[{label:'Bx',data:[],borderColor:'#4dd9ac',borderWidth:1.5,pointRadius:[],pointBackgroundColor:[],pointHoverRadius:4,tension:.3,fill:{target:'origin',above:'rgba(77,217,172,.05)',below:'rgba(224,108,160,.08)'}}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:tt},
+      scales:{x:{grid,border:brd,ticks:tickX},y:{min:-1400,max:550,grid,border:{...brd,dash:[3,3]},ticks:tickY}}}});
+
+  const ctx3=document.getElementById('tc3').getContext('2d');
+  const mkDs=(col,lbl)=>({label:lbl,data:[],borderColor:col,borderWidth:1.5,pointRadius:0,tension:.3,fill:false});
+  chart3=new Chart(ctx3,{type:'line',data:{labels:[],datasets:[mkDs('#4dd9ac','Bx'),mkDs('#5ab4f5','By'),mkDs('#e06ca0','Bz')]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:tt},
+      scales:{x:{grid,border:brd,ticks:tickX},y:{min:-1400,max:700,grid,border:{...brd,dash:[3,3]},ticks:tickY}}}});
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function fmt(v){return isNaN(v)?'—':(v>=0?'+':'')+v.toFixed(1);}
+function updateUI(x,y,z){
+  const total=Math.sqrt(x*x+y*y+z*z);
+  document.getElementById('total-val').textContent=total.toFixed(1);
+  document.getElementById('x-val').textContent=fmt(x);
+  document.getElementById('y-val').textContent=fmt(y);
+  document.getElementById('z-val').textContent=fmt(z);
+  const pct=v=>clamp(50+(v/80)*50,2,98);
+  document.getElementById('bar-x').style.width=pct(x)+'%';
+  document.getElementById('bar-y').style.width=pct(y)+'%';
+  document.getElementById('bar-z').style.width=pct(z)+'%';
+  const angle=(clamp(total/80,0,1)*180)-90;
+  document.getElementById('needle').setAttribute('transform',`rotate(${angle.toFixed(1)},130,132)`);
+  const n=document.getElementById('total-val');
+  n.style.color=total<25?'var(--pink)':total<40?'var(--amber)':total<55?'var(--blue)':'var(--teal)';
+}
+function showBase(){updateUI(BASE.x,BASE.y,BASE.z);}
+function setStatus(msg,cls){
+  const el=document.getElementById('status');
+  el.className='status-line'+(cls?' '+cls:'');
+  el.innerHTML=cls==='live'?'<span class="live-dot"></span>'+msg:cls==='sim'?'<span class="sim-dot"></span>'+msg:msg;
+}
+function setPhase(p){
+  const el=document.getElementById('phase-label');
+  el.className='phase-label'+(p?' '+p.cls:'');
+  el.textContent=p?p.label:'ready';
+}
+function stopAll(){
+  stopSensor();
+  if(timer){clearInterval(timer);timer=null;}
+  const sb=document.getElementById('storm-btn');
+  if(sb){sb.textContent='Play storm';sb.disabled=false;}
+  document.getElementById('storm-alert').classList.remove('visible');
+}
+showBase();
+setStatus('select a mode above to begin');
+</script>
+</body>
+</html>

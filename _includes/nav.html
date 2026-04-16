@@ -11,6 +11,7 @@
       <a href="{% if page.home %}#media{% else %}/#media{% endif %}">Media</a>
       <a href="{% if page.home %}#publications{% else %}/publications{% endif %}"{% if page.active_nav == 'publications' %} class="active"{% endif %}>Papers</a>
       <a href="/cv"{% if page.active_nav == 'cv' %} class="active"{% elsif page.home %} target="_blank"{% endif %}>CV</a>
+      <a href="/magnetometer"{% if page.active_nav == 'magnetometer' %} class="active"{% elsif page.home %} target="_blank"{% endif %}>Magnetometer</a>
       <a href="{% if page.home %}#contact{% else %}/#contact{% endif %}" class="cta">Contact</a>
     </div>
   </div>
